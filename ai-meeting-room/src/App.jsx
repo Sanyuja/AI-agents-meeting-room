@@ -8,7 +8,7 @@
  * - Each response plays in the agent's ElevenLabs voice.
  */
 
-import { useState, useEffect, useRef, useCallback } from 'react'
+import React, { useState, useEffect, useRef, useCallback } from 'react'
 import { useSpeechRecognition } from './hooks/useSpeechRecognition.js'
 import { useAudio } from './hooks/useAudio.js'
 
@@ -87,9 +87,11 @@ export default function App() {
         { role: 'assistant', content: data.text },
       ])
 
-      // Play the agent's voice
+      // Play the agent's voice (ElevenLabs if available, browser TTS as fallback)
       if (data.audio) {
         await play(data.audio, data.audioMime)
+      } else if (data.text) {
+        await speakBrowser(data.text, targetId)
       }
 
       // After agent finishes speaking, check for interjections
@@ -128,6 +130,7 @@ export default function App() {
           { role: 'agent', agentId: inj.agentId, text: inj.text, ts: new Date(), isInterjection: true },
         ])
         if (inj.audio) await play(inj.audio)
+        else if (inj.text) await speakBrowser(inj.text, inj.agentId)
         await new Promise((r) => setTimeout(r, 500)) // small gap between voices
       }
     } catch {}
@@ -171,22 +174,19 @@ export default function App() {
 
       {/* ── Sidebar: Available agents ── */}
       <aside style={s.sidebar}>
+        <div style={s.brandMark}>vr_rani</div>
+        <div style={s.sidebarDivider} />
         <p style={s.sidebarLabel}>Team</p>
         {allAgents.map((agent) => {
           const active = inMeeting.includes(agent.id)
           return (
-            <div key={agent.id} style={{ ...s.agentRow, borderColor: active ? agent.color : '#2a2a3a' }}>
-              <span style={s.agentEmoji}>{agent.emoji}</span>
+            <div key={agent.id} style={{ ...s.agentRow, borderColor: active ? agent.color : 'rgba(160,80,255,0.12)' }}>
+              <AgentAvatar agent={agent} size={38} active={active} />
               <div style={s.agentInfo}>
-                <span style={{ ...s.agentName, color: active ? agent.color : '#e8e8f0' }}>{agent.name}</span>
+                <span style={{ ...s.agentName, color: active ? agent.color : '#E8D8FF' }}>{agent.name}</span>
                 <span style={s.agentRole}>{agent.role}</span>
               </div>
-              <button
-                onClick={() => toggleInMeeting(agent.id)}
-                style={{ ...s.inviteBtn, background: active ? '#1e2a1e' : '#1a1a27', color: active ? '#22c55e' : '#6b6b85', borderColor: active ? '#22c55e33' : '#2a2a3a' }}
-              >
-                {active ? 'In room' : 'Invite'}
-              </button>
+              <RoomToggleBtn agent={agent} active={active} onClick={() => toggleInMeeting(agent.id)} />
             </div>
           )
         })}
@@ -261,10 +261,11 @@ export default function App() {
               const agent = agentMap[msg.agentId]
               if (!agent) return null
               return (
-                <div key={i} style={{ ...s.agentBubble, borderLeftColor: agent.color }}>
+                <div key={i} style={{ ...s.agentBubble, borderLeftColor: agent.color, borderTopColor: `${agent.color}33`, background: `linear-gradient(135deg, rgba(17,0,28,0.75) 0%, ${agent.color}08 100%)` }}>
                   <div style={s.agentBubbleHeader}>
-                    <span style={{ color: agent.color, fontWeight: 600, fontSize: 13 }}>
-                      {agent.emoji} {agent.name}
+                    <AgentAvatar agent={agent} size={22} active />
+                    <span style={{ color: agent.color, fontWeight: 700, fontSize: 13 }}>
+                      {agent.name}
                     </span>
                     {msg.isInterjection && <span style={s.interjectionTag}>jumped in</span>}
                     <span style={s.bubbleTime}>{msg.ts.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
@@ -322,6 +323,60 @@ export default function App() {
 
 // ─── Small components ─────────────────────────────────────────────────────────
 
+function RoomToggleBtn({ agent, active, onClick }) {
+  const [hovered, setHovered] = React.useState(false)
+  if (active) {
+    return (
+      <button
+        onClick={onClick}
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
+        style={{ ...s.inviteBtn,
+          background: hovered ? 'rgba(239,68,68,0.12)' : `${agent.color}22`,
+          color: hovered ? '#ef4444' : agent.color,
+          borderColor: hovered ? 'rgba(239,68,68,0.4)' : `${agent.color}55`,
+          minWidth: 62,
+        }}
+      >
+        {hovered ? 'Remove' : 'In room'}
+      </button>
+    )
+  }
+  return (
+    <button
+      onClick={onClick}
+      style={{ ...s.inviteBtn,
+        background: 'rgba(17,0,28,0.8)',
+        color: '#6B5080',
+        borderColor: 'rgba(160,80,255,0.15)',
+        minWidth: 62,
+      }}
+    >
+      Invite
+    </button>
+  )
+}
+
+function AgentAvatar({ agent, size = 36, active = false }) {
+  const [imgFailed, setImgFailed] = React.useState(false)
+  const showImg = agent.image && !imgFailed
+  return (
+    <div style={{
+      width: size, height: size, borderRadius: '50%', flexShrink: 0, overflow: 'hidden',
+      border: `1.5px solid ${active ? agent.color : 'rgba(160,80,255,0.2)'}`,
+      boxShadow: active ? `0 0 ${size * 0.4}px ${agent.color}55` : 'none',
+      background: `${agent.color}22`,
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      transition: 'all 0.3s',
+    }}>
+      {showImg
+        ? <img src={agent.image} alt="" onError={() => setImgFailed(true)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+        : <span style={{ fontSize: size * 0.45, lineHeight: 1 }}>{agent.emoji}</span>
+      }
+    </div>
+  )
+}
+
 function PulsingDot() {
   return (
     <span style={{ display: 'inline-block', width: 6, height: 6, borderRadius: '50%', background: '#22c55e', marginLeft: 6, animation: 'pulse 1s infinite' }} />
@@ -338,99 +393,188 @@ function ThinkingDots() {
   )
 }
 
+// ─── Browser TTS fallback ────────────────────────────────────────────────────
+// Used when ElevenLabs is unavailable (free plan, quota exceeded, etc.)
+
+function speakBrowser(text, agentId = '') {
+  return new Promise((resolve) => {
+    if (!window.speechSynthesis || !text) { resolve(); return }
+    window.speechSynthesis.cancel()
+    const utter = new SpeechSynthesisUtterance(text)
+
+    // Voices load async — wait briefly if not ready yet
+    const go = () => {
+      const voices = window.speechSynthesis.getVoices()
+      if (agentId === 'alfred') {
+        const v = voices.find((v) => v.lang === 'en-GB') || voices.find((v) => v.lang.startsWith('en'))
+        if (v) utter.voice = v
+        utter.pitch = 0.88
+        utter.rate  = 0.92
+      } else {
+        const v = voices.find((v) => /female|woman/i.test(v.name) && v.lang.startsWith('en'))
+          || voices.find((v) => v.lang.startsWith('en-US'))
+        if (v) utter.voice = v
+        utter.pitch = 1.12
+        utter.rate  = 1.05
+      }
+      utter.onend  = resolve
+      utter.onerror = resolve
+      window.speechSynthesis.speak(utter)
+    }
+
+    const voices = window.speechSynthesis.getVoices()
+    if (voices.length) {
+      go()
+    } else {
+      window.speechSynthesis.onvoiceschanged = () => { window.speechSynthesis.onvoiceschanged = null; go() }
+    }
+  })
+}
+
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
-const s = {
-  page: { display: 'flex', minHeight: '100vh', background: '#0a0a0f' },
+const GOLD   = '#C9A84C'
+const GOLD_G = 'rgba(201,168,76,0.18)'
+const PURPLE = 'rgba(155,93,229,0.15)'
+const BORDER = 'rgba(160,80,255,0.16)'
 
+const s = {
+  page: { display: 'flex', minHeight: '100vh' },
+
+  // ── Sidebar ──
   sidebar: {
-    width: 240, flexShrink: 0, borderRight: '1px solid #1e1e2a',
-    padding: '28px 16px', display: 'flex', flexDirection: 'column', gap: 10,
+    width: 250, flexShrink: 0,
+    borderRight: `1px solid ${BORDER}`,
+    padding: '24px 14px', display: 'flex', flexDirection: 'column', gap: 10,
+    background: 'rgba(7,0,14,0.72)',
+    backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)',
   },
-  sidebarLabel: { fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#4a4a60', marginBottom: 4, fontWeight: 600 },
+  brandMark: {
+    textAlign: 'center', padding: '4px 0 12px',
+    fontSize: 15, fontWeight: 800, letterSpacing: '0.12em',
+    background: 'linear-gradient(135deg, #C9A84C 0%, #F0D47A 50%, #C9A84C 100%)',
+    backgroundSize: '200% auto',
+    WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
+    animation: 'shimmer 4s linear infinite',
+  },
+  sidebarLabel: {
+    fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.12em',
+    color: GOLD, marginBottom: 4, fontWeight: 700,
+  },
   agentRow: {
     display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px',
     borderRadius: 10, border: '1px solid', transition: 'all 0.2s',
-    background: '#13131a',
+    background: 'rgba(17,0,28,0.65)',
   },
-  agentEmoji: { fontSize: 20 },
+  agentEmoji: { fontSize: 20 }, // fallback when no image
   agentInfo: { flex: 1, display: 'flex', flexDirection: 'column', gap: 2 },
   agentName: { fontSize: 13, fontWeight: 600, transition: 'color 0.2s' },
-  agentRole: { fontSize: 10, color: '#4a4a60', textTransform: 'uppercase', letterSpacing: '0.05em' },
+  agentRole: { fontSize: 10, color: '#6B5080', textTransform: 'uppercase', letterSpacing: '0.06em' },
   inviteBtn: {
     fontSize: 11, padding: '4px 10px', borderRadius: 6, border: '1px solid',
-    cursor: 'pointer', fontWeight: 500, transition: 'all 0.2s', whiteSpace: 'nowrap',
+    cursor: 'pointer', fontWeight: 600, transition: 'all 0.2s', whiteSpace: 'nowrap',
+    letterSpacing: '0.02em',
   },
-  sidebarDivider: { height: 1, background: '#1e1e2a', margin: '8px 0' },
-  sidebarHint: { fontSize: 11, color: '#3a3a50', lineHeight: 1.6 },
-  code: { fontFamily: 'monospace', background: '#1e1e2a', padding: '1px 4px', borderRadius: 3, fontSize: 10 },
+  sidebarDivider: { height: 1, background: BORDER, margin: '8px 0' },
+  sidebarHint: { fontSize: 11, color: '#4A3060', lineHeight: 1.6 },
+  code: {
+    fontFamily: 'monospace', background: PURPLE,
+    padding: '1px 5px', borderRadius: 3, fontSize: 10, color: '#A080D0',
+  },
 
-  main: { flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' },
+  // ── Main ──
+  main: {
+    flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden',
+    background: 'rgba(7,0,14,0.45)',
+    backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
+  },
 
   header: {
     display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between',
-    padding: '24px 28px 16px', borderBottom: '1px solid #1e1e2a',
+    padding: '22px 28px 14px',
+    borderBottom: `1px solid ${BORDER}`,
+    background: 'rgba(7,0,14,0.35)',
   },
   headerLeft: { display: 'flex', flexDirection: 'column', gap: 10 },
-  title: { fontSize: 18, fontWeight: 700, color: '#e8e8f0', letterSpacing: '-0.01em' },
+  title: {
+    fontSize: 18, fontWeight: 800, letterSpacing: '-0.01em',
+    background: 'linear-gradient(135deg, #E8D8FF 0%, #C9A84C 100%)',
+    WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
+  },
   inRoomPills: { display: 'flex', gap: 8, flexWrap: 'wrap' },
   pill: {
     display: 'flex', alignItems: 'center', gap: 4, fontSize: 12,
-    padding: '4px 10px', borderRadius: 20, border: '1px solid',
-    transition: 'all 0.3s',
+    padding: '4px 10px', borderRadius: 20, border: '1px solid', transition: 'all 0.3s',
   },
   micStatus: { display: 'flex', alignItems: 'center', gap: 8, paddingTop: 4 },
   micDot: { width: 8, height: 8, borderRadius: '50%', transition: 'all 0.3s' },
-  micLabel: { fontSize: 12, color: '#6b6b85' },
+  micLabel: { fontSize: 12, color: '#8A70A8' },
 
+  // ── Chat ──
   interim: {
-    margin: '0 28px', padding: '8px 14px', background: '#13131a',
-    border: '1px solid #2a2a3a', borderRadius: 8,
-    display: 'flex', alignItems: 'center', gap: 12,
+    margin: '8px 28px', padding: '8px 14px',
+    background: 'rgba(17,0,28,0.55)', border: `1px solid ${GOLD_G}`,
+    borderRadius: 8, display: 'flex', alignItems: 'center', gap: 12,
+    backdropFilter: 'blur(8px)',
   },
-  interimText: { fontSize: 13, color: '#6b6b85', fontStyle: 'italic', flex: 1 },
+  interimText: { fontSize: 13, color: '#8A70A8', fontStyle: 'italic', flex: 1 },
   interimTarget: { fontSize: 12, fontWeight: 600 },
 
   feed: { flex: 1, overflowY: 'auto', padding: '20px 28px', display: 'flex', flexDirection: 'column', gap: 14 },
 
   emptyState: { margin: 'auto', textAlign: 'center', paddingBottom: 40 },
-  emptyTitle: { fontSize: 18, color: '#4a4a60', marginBottom: 8 },
-  emptyHint: { fontSize: 14, color: '#3a3a50', lineHeight: 1.7 },
+  emptyTitle: { fontSize: 18, color: '#4A3060', marginBottom: 8 },
+  emptyHint: { fontSize: 14, color: '#3A2050', lineHeight: 1.7 },
 
   userBubble: {
     alignSelf: 'flex-end', maxWidth: '70%',
-    background: '#1c1c27', border: '1px solid #2a2a3a', borderRadius: '12px 12px 2px 12px',
-    padding: '10px 14px',
+    background: 'rgba(30,8,50,0.7)',
+    border: `1px solid ${GOLD_G}`,
+    borderRadius: '12px 12px 2px 12px', padding: '10px 14px',
+    backdropFilter: 'blur(8px)',
   },
-  userLabel: { fontSize: 11, color: '#4a4a60', display: 'block', marginBottom: 4 },
-  userText: { fontSize: 14, color: '#c8c8dc', lineHeight: 1.55 },
+  userLabel: { fontSize: 11, color: GOLD, display: 'block', marginBottom: 4, fontWeight: 600 },
+  userText: { fontSize: 14, color: '#D8C8F0', lineHeight: 1.55 },
 
   agentBubble: {
     alignSelf: 'flex-start', maxWidth: '80%',
-    background: '#13131a', border: '1px solid #2a2a3a', borderLeft: '3px solid',
+    background: 'rgba(17,0,28,0.65)',
+    border: `1px solid ${BORDER}`, borderLeft: '3px solid',
     borderRadius: '2px 12px 12px 12px', padding: '12px 16px',
+    backdropFilter: 'blur(8px)',
   },
   agentBubbleHeader: { display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 },
-  agentText: { fontSize: 14, color: '#d8d8ec', lineHeight: 1.65 },
-  bubbleTime: { fontSize: 10, color: '#3a3a50', marginLeft: 'auto' },
-  interjectionTag: { fontSize: 10, color: '#f97316', background: '#f9731611', padding: '1px 6px', borderRadius: 4 },
+  agentText: { fontSize: 14, color: '#D8C8F0', lineHeight: 1.65 },
+  bubbleTime: { fontSize: 10, color: '#4A3060', marginLeft: 'auto' },
+  interjectionTag: {
+    fontSize: 10, color: GOLD,
+    background: GOLD_G, padding: '1px 6px', borderRadius: 4,
+  },
 
-  errorBubble: { padding: '8px 12px', background: '#1a0f0f', border: '1px solid #ef444433', borderRadius: 8, fontSize: 13, color: '#ef4444' },
-
+  errorBubble: {
+    padding: '8px 12px', background: 'rgba(30,0,0,0.7)',
+    border: '1px solid rgba(239,68,68,0.3)', borderRadius: 8,
+    fontSize: 13, color: '#ef4444',
+  },
   micError: { fontSize: 12, color: '#ef4444', padding: '4px 28px 0' },
 
+  // ── Input ──
   inputBar: {
     display: 'flex', gap: 8, padding: '12px 28px 16px',
-    borderTop: '1px solid #1e1e2a',
+    borderTop: `1px solid ${BORDER}`,
+    background: 'rgba(7,0,14,0.5)',
   },
   textInput: {
-    flex: 1, background: '#13131a', border: '1px solid #2a2a3a', borderRadius: 8,
-    padding: '9px 14px', fontSize: 14, color: '#e8e8f0', outline: 'none',
-    fontFamily: 'inherit',
+    flex: 1, background: 'rgba(17,0,28,0.75)',
+    border: `1px solid ${BORDER}`, borderRadius: 8,
+    padding: '9px 14px', fontSize: 14, color: '#F0E8FF', outline: 'none',
+    fontFamily: 'inherit', transition: 'border-color 0.2s',
   },
   sendBtn: {
-    background: '#1e1e35', border: '1px solid #3a3a55', borderRadius: 8,
-    padding: '9px 18px', fontSize: 13, color: '#a0a0c0', cursor: 'pointer',
-    fontWeight: 500, transition: 'opacity 0.15s',
+    background: `linear-gradient(135deg, #8B6010, ${GOLD})`,
+    border: 'none', borderRadius: 8,
+    padding: '9px 22px', fontSize: 13, color: '#07000E',
+    cursor: 'pointer', fontWeight: 700, transition: 'opacity 0.15s',
+    letterSpacing: '0.03em',
   },
 }

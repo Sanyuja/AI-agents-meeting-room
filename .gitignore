@@ -17,3 +17,8 @@ ai-meeting-room/dist/
 .DS_Store
 Thumbs.db
 .vscode/settings.json
+
+# Personal brand assets — add your own images to /public locally
+ai-meeting-room/public/vr_rani*.png
+ai-meeting-room/public/vr_rani*.tiff
+ai-meeting-room/public/*.tiff

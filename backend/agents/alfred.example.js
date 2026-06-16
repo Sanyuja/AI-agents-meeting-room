@@ -15,7 +15,8 @@ export const alfred = {
   name: 'Alfred',
   emoji: '🎩',
   role: 'Tech & Ops',
-  color: '#4f8ef7',
+  color: '#2DD4BF',
+  image: '/vr_rani2.png',
   description: 'Calm, British, precise. Your right hand. Handles tech, ops, scheduling, execution.',
   catchphrase: 'Consider it done.',
 

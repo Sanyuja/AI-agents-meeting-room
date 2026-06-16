@@ -42,7 +42,7 @@ router.post('/:id/chat', async (req, res) => {
       })
       audioBase64 = audioBuf.toString('base64')
     } catch (err) {
-      console.warn(`TTS failed for ${id}:`, err.message)
+      console.warn(`⚠️  TTS failed for ${id} (voice: ${agent.voiceId}):`, err.message)
       // Non-fatal — return text without audio
     }
 

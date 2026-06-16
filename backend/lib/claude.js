@@ -43,9 +43,8 @@ export async function getAgentResponse({ agentId, transcript, conversationHistor
   const agent = registry[agentId]
   if (!agent) throw new Error(`Unknown agent: ${agentId}`)
 
-  // Determine tools for this agent
-  const tools = []
-  if (agentId === 'alfred') tools.push(...ALFRED_TOOLS)
+  // Determine tools for this agent — all agents get ClickUp access
+  const tools = [...ALFRED_TOOLS]
   if (agent.canConsult?.length) tools.push(CONSULT_TOOL)
 
   const messages = [

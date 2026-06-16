@@ -15,7 +15,8 @@ export const missBehave = {
   name: 'Miss Behave',
   emoji: '👑',
   role: 'Brand & Content',
-  color: '#f764b0',
+  color: '#D4906E',
+  image: '/vr_rani1.png',
   description: 'Bold, creative, unapologetic. Handles brand, content, aesthetics, audience.',
   catchphrase: 'Darling, make it iconic.',
 

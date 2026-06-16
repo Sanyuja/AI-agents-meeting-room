@@ -5,16 +5,19 @@
 }
 
 :root {
-  --bg: #0a0a0f;
-  --surface: #13131a;
-  --surface-2: #1c1c27;
-  --border: #2a2a3a;
-  --text: #e8e8f0;
-  --text-muted: #6b6b85;
-  --accent: #7c6af7;
-  --accent-glow: rgba(124, 106, 247, 0.25);
-  --red: #ef4444;
-  --green: #22c55e;
+  --bg:          #07000E;
+  --surface:     #110018;
+  --surface-2:   #1A0028;
+  --border:      rgba(160, 80, 255, 0.16);
+  --text:        #F0E8FF;
+  --text-muted:  #8A70A8;
+  --gold:        #C9A84C;
+  --gold-dim:    rgba(201, 168, 76, 0.18);
+  --gold-glow:   rgba(201, 168, 76, 0.35);
+  --purple:      #9B5DE5;
+  --purple-dim:  rgba(155, 93, 229, 0.15);
+  --red:         #ef4444;
+  --green:       #22c55e;
 }
 
 body {
@@ -23,4 +26,47 @@ body {
   color: var(--text);
   min-height: 100vh;
   -webkit-font-smoothing: antialiased;
+  background-image:
+    radial-gradient(ellipse at 50% 40%, rgba(80, 0, 160, 0.28) 0%, transparent 60%),
+    radial-gradient(ellipse at 15% 85%, rgba(50, 0, 100, 0.18) 0%, transparent 45%),
+    radial-gradient(ellipse at 85% 15%, rgba(100, 50, 0, 0.12) 0%, transparent 45%);
+}
+
+/* Brand watermark — shows once vr-rani-bg.png is placed in /public */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  /* Use vr_rani.png once you convert vr_rani.tiff → vr_rani.png */
+  background: url('/vr_rani1.png') no-repeat center 42% / 46% auto;
+  opacity: 0.18;
+  filter: saturate(1.6) brightness(0.9);
+  pointer-events: none;
+  z-index: 0;
+}
+
+#root {
+  position: relative;
+  z-index: 1;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(155, 93, 229, 0.25); border-radius: 2px; }
+
+/* Animations */
+@keyframes pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%       { opacity: 0.5; transform: scale(0.85); }
+}
+
+@keyframes bounce {
+  0%, 100% { transform: translateY(0); }
+  50%       { transform: translateY(-4px); }
+}
+
+@keyframes shimmer {
+  0%   { background-position: -200% center; }
+  100% { background-position:  200% center; }
 }
