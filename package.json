@@ -1,0 +1,13 @@
+{
+  "name": "ai-meeting-room-root",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "setup": "node setup.js",
+    "dev": "concurrently --names \"backend,frontend\" --prefix-colors \"blue,magenta\" \"npm run dev --prefix backend\" \"npm run dev --prefix ai-meeting-room\""
+  },
+  "devDependencies": {
+    "concurrently": "^9.0.0"
+  }
+}
