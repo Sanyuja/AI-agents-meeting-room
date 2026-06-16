@@ -1,0 +1,19 @@
+# Dependencies
+node_modules/
+
+# Environment variables — never commit real keys
+.env
+.env.local
+.env.production
+
+# Personal agent files — copy *.example.js → *.js and customize locally
+backend/agents/alfred.js
+backend/agents/miss-behave.js
+
+# Frontend build output
+ai-meeting-room/dist/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/settings.json
