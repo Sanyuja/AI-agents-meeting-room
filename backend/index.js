@@ -1,9 +1,12 @@
 import 'dotenv/config'
 import express from 'express'
 import cors from 'cors'
-import { alfred } from './agents/alfred.js'
-import { missBehave } from './agents/miss-behave.js'
 import agentRoutes from './routes/agents.js'
+
+// Load personal agent files if they exist, otherwise fall back to the example versions.
+// Copy *.example.js → *.js and customize to create your own agents.
+const { alfred } = await import('./agents/alfred.js').catch(() => import('./agents/alfred.example.js'))
+const { missBehave } = await import('./agents/miss-behave.js').catch(() => import('./agents/miss-behave.example.js'))
 
 // ─── Agent Registry ───────────────────────────────────────────────────────────
 // To add a new persona: import it here and add to the registry.

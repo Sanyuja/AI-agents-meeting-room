@@ -13,8 +13,18 @@ export function useSpeechRecognition({ onUtterance, onNameDetected, onInterim, e
   const [error, setError] = useState(null)
   const recognitionRef = useRef(null)
   const finalTranscriptRef = useRef('')
+  const interimRef = useRef('')
   const pauseTimerRef = useRef(null)
   const enabledRef = useRef(enabled)
+
+  // Keep callback refs current so recognition handlers always call the latest version,
+  // even if the parent re-creates the callbacks after allAgents/inMeeting loads.
+  const onUtteranceRef = useRef(onUtterance)
+  const onNameDetectedRef = useRef(onNameDetected)
+  const onInterimRef = useRef(onInterim)
+  useEffect(() => { onUtteranceRef.current = onUtterance }, [onUtterance])
+  useEffect(() => { onNameDetectedRef.current = onNameDetected }, [onNameDetected])
+  useEffect(() => { onInterimRef.current = onInterim }, [onInterim])
 
   // Keep the ref in sync so recognition.onend always reads the current value
   useEffect(() => { enabledRef.current = enabled }, [enabled])
@@ -45,6 +55,12 @@ export function useSpeechRecognition({ onUtterance, onNameDetected, onInterim, e
       return
     }
 
+    // Kill the old instance cleanly — null its onend so it doesn't trigger a restart
+    if (recognitionRef.current) {
+      recognitionRef.current.onend = null
+      recognitionRef.current.abort()
+    }
+
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition
     const recognition = new SR()
 
@@ -53,20 +69,23 @@ export function useSpeechRecognition({ onUtterance, onNameDetected, onInterim, e
     recognition.lang = 'en-US'
     recognition.maxAlternatives = 1
 
-    recognition.onstart = () => setIsListening(true)
+    recognition.onstart = () => { console.log('[SR] started'); setIsListening(true) }
     recognition.onend = () => {
       setIsListening(false)
-      if (enabledRef.current) {
+      // Only restart if THIS instance is still the active one — prevents abort loops
+      if (enabledRef.current && recognitionRef.current === recognition) {
         setTimeout(() => recognition.start(), 300)
       }
     }
     recognition.onerror = (e) => {
-      if (e.error === 'no-speech') return // normal, ignore
-      if (e.error === 'aborted') return   // we stopped it, ignore
+      console.log('[SR] error:', e.error)
+      if (e.error === 'no-speech') return
+      if (e.error === 'aborted') return
       setError(`Mic error: ${e.error}`)
     }
 
     recognition.onresult = (event) => {
+      console.log('[SR] got result')
       let interimText = ''
       let finalText = ''
 
@@ -81,25 +100,30 @@ export function useSpeechRecognition({ onUtterance, onNameDetected, onInterim, e
 
       const combined = finalTranscriptRef.current + finalText
       finalTranscriptRef.current = combined
+      if (interimText) interimRef.current = interimText
 
       // Show interim text in UI
-      if (interimText) onInterim?.(interimText)
+      if (interimText) onInterimRef.current?.(interimText)
 
       // Detect agent name in what's being said right now
       const nameInInterim = detectAgentName(interimText)
       const nameInFinal = detectAgentName(finalText)
       if (nameInInterim || nameInFinal) {
-        onNameDetected?.(nameInInterim || nameInFinal)
+        onNameDetectedRef.current?.(nameInInterim || nameInFinal)
       }
 
-      // After a pause (1.2s silence), fire the full utterance
+      // After a pause (1.2s silence), fire the full utterance.
+      // Use final text if available, fall back to interim — some browsers only
+      // return interim results and never mark them final.
       clearTimeout(pauseTimerRef.current)
-      if (combined.trim()) {
+      if (combined.trim() || interimText.trim()) {
         pauseTimerRef.current = setTimeout(() => {
-          const text = finalTranscriptRef.current.trim()
+          const text = (finalTranscriptRef.current || interimRef.current).trim()
           if (text) {
-            onUtterance?.(text)
+            onUtteranceRef.current?.(text)
             finalTranscriptRef.current = ''
+            interimRef.current = ''
+            onInterimRef.current?.('')
           }
         }, 1200)
       }
@@ -107,7 +131,7 @@ export function useSpeechRecognition({ onUtterance, onNameDetected, onInterim, e
 
     recognitionRef.current = recognition
     recognition.start()
-  }, [enabled, detectAgentName, onUtterance, onNameDetected, onInterim])
+  }, [detectAgentName])
 
   const stopListening = useCallback(() => {
     clearTimeout(pauseTimerRef.current)

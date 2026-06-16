@@ -7,6 +7,13 @@ const BASE = 'https://api.clickup.com/api/v2'
 const KEY = process.env.CLICKUP_API_KEY
 const TEAM_ID = process.env.CLICKUP_TEAM_ID
 
+// Maps agent/person names → ClickUp numeric user IDs
+const USER_IDS = {
+  sanyuja:      process.env.CLICKUP_USER_ID_SANYUJA,
+  alfred:       process.env.CLICKUP_USER_ID_ALFRED,
+  'miss-behave': process.env.CLICKUP_USER_ID_MISS_BEHAVE,
+}
+
 const headers = () => ({
   'Authorization': KEY,
   'Content-Type': 'application/json',
@@ -26,6 +33,7 @@ export const CLICKUP_TOOL_DEFINITIONS = [
         list_name: { type: 'string', description: 'Name of the ClickUp list to add it to. Default: infer from context, or use "ML projects".' },
         due_date: { type: 'string', description: 'Due date in YYYY-MM-DD format. Only include if explicitly mentioned.' },
         priority: { type: 'number', enum: [1, 2, 3, 4], description: '1=urgent, 2=high, 3=normal, 4=low. Default: 3.' },
+        assignee: { type: 'string', enum: ['sanyuja', 'alfred', 'miss-behave'], description: 'Who to assign this task to. Use "sanyuja" for tasks she needs to do herself. Use "alfred" for tasks Alfred is owning. Use "miss-behave" for creative work she is leading.' },
       },
       required: ['name'],
     },
@@ -92,7 +100,7 @@ export async function executeTool(toolName, input) {
   }
 }
 
-async function createTask({ name, description, list_name = 'ML projects', due_date, priority = 3 }) {
+async function createTask({ name, description, list_name = 'ML projects', due_date, priority = 3, assignee }) {
   // 1. Find the list by name
   const lists = await findListsByName(list_name)
   if (!lists.length) {
@@ -104,6 +112,7 @@ async function createTask({ name, description, list_name = 'ML projects', due_da
   const body = { name, priority }
   if (description) body.description = description
   if (due_date) body.due_date = new Date(due_date).getTime()
+  if (assignee && USER_IDS[assignee]) body.assignees = [parseInt(USER_IDS[assignee])]
 
   const res = await fetch(`${BASE}/list/${listId}/task`, {
     method: 'POST',
