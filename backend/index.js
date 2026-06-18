@@ -28,7 +28,15 @@ export const registry = {
 
 const app = express()
 
-app.use(cors({ origin: ['http://localhost:5173', 'http://localhost:4173'] }))
+app.use(cors({
+  origin: (origin, cb) => {
+    // Allow same-machine and local network (192.168.x, 10.x, 172.16-31.x)
+    if (!origin || /^http:\/\/(localhost|127\.0\.0\.1|(192\.168|10\.|172\.(1[6-9]|2\d|3[01]))\.)/.test(origin)) {
+      return cb(null, true)
+    }
+    cb(new Error('CORS: origin not allowed'))
+  },
+}))
 app.use(express.json())
 
 // Health check

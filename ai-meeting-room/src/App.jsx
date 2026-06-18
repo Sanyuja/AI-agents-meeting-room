@@ -12,7 +12,8 @@ import React, { useState, useEffect, useRef, useCallback } from 'react'
 import { useSpeechRecognition } from './hooks/useSpeechRecognition.js'
 import { useAudio } from './hooks/useAudio.js'
 
-const API = 'http://localhost:3001'
+// Use VITE_API_URL env var if set, otherwise derive from current host (works on phone over local network)
+const API = import.meta.env.VITE_API_URL || `http://${window.location.hostname}:3001`
 
 // ─── App ─────────────────────────────────────────────────────────────────────
 
