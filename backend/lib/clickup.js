@@ -39,6 +39,18 @@ export const CLICKUP_TOOL_DEFINITIONS = [
     },
   },
   {
+    name: 'create_doc',
+    description: 'Create a ClickUp Doc to capture meeting notes, decisions, creative briefs, research, or any freeform content. Use this instead of a task when the output is a document rather than a to-do. The content supports markdown.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        title: { type: 'string', description: 'Doc title, e.g. "Meeting Notes — 18 Jun" or "Brand Brief: Campaign Name".' },
+        content: { type: 'string', description: 'Full doc content in markdown. Include headings, bullets, decisions, action items — whatever was discussed.' },
+      },
+      required: ['title', 'content'],
+    },
+  },
+  {
     name: 'add_meeting_note',
     description: 'Add a note or meeting summary as a comment on an existing task.',
     input_schema: {
@@ -91,11 +103,12 @@ export const CLICKUP_TOOL_DEFINITIONS = [
 
 export async function executeTool(toolName, input) {
   switch (toolName) {
-    case 'create_task':     return createTask(input)
-    case 'add_meeting_note': return addMeetingNote(input)
+    case 'create_task':        return createTask(input)
+    case 'create_doc':         return createDoc(input)
+    case 'add_meeting_note':   return addMeetingNote(input)
     case 'update_task_status': return updateTaskStatus(input)
-    case 'search_tasks':    return searchTasks(input)
-    case 'list_tasks':      return listTasks(input)
+    case 'search_tasks':       return searchTasks(input)
+    case 'list_tasks':         return listTasks(input)
     default: throw new Error(`Unknown tool: ${toolName}`)
   }
 }
@@ -128,6 +141,45 @@ async function createTask({ name, description, list_name = 'ML projects', due_da
     task_name: data.name,
     url: data.url,
     list: list_name,
+  }
+}
+
+async function createDoc({ title, content }) {
+  const BASE3 = 'https://api.clickup.com/api/v3'
+
+  // 1. Create the doc at workspace level
+  const docRes = await fetch(`${BASE3}/workspaces/${TEAM_ID}/docs`, {
+    method: 'POST',
+    headers: headers(),
+    body: JSON.stringify({
+      name: title,
+      parent: { id: TEAM_ID, type: 7 }, // type 7 = workspace root
+    }),
+  })
+  const docData = await docRes.json()
+  if (!docRes.ok) return { error: docData.err || 'Failed to create doc', details: docData }
+
+  const docId = docData.id ?? docData.doc?.id
+  if (!docId) return { error: 'Doc created but no ID returned', details: docData }
+
+  // 2. Add a page with the content
+  const pageRes = await fetch(`${BASE3}/workspaces/${TEAM_ID}/docs/${docId}/pages`, {
+    method: 'POST',
+    headers: headers(),
+    body: JSON.stringify({
+      name: title,
+      content,
+      content_format: 'text/md',
+    }),
+  })
+  const pageData = await pageRes.json()
+  if (!pageRes.ok) return { error: pageData.err || 'Doc created but page failed', details: pageData }
+
+  return {
+    success: true,
+    doc_id: docId,
+    title,
+    url: `https://app.clickup.com/${TEAM_ID}/v/dc/${docId}`,
   }
 }
 
